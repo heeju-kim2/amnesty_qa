@@ -1,0 +1,27 @@
+model:
+  llm_type: openai # hf
+  llm_pretty_name : llama_3_1_8B 
+  llm_id: meta-llama/Meta-Llama-3.1-8B-Instruct 
+  model_dtype: "bfloat16"
+
+host: "localhost"
+port: 8000
+api_key: "token-abc123"
+
+dataset:
+  hf_id: "explodinggradients/amnesty_qa" 
+  hf_sub_id: "english_v1"
+  split: "eval"
+
+paths:
+  cache_dir: ./
+  results_dir: "./results"
+
+seed: 42
+
+gen_config:
+  top_p: 1.0
+  temperature: 0
+  max_tokens: 1024
+
+metrics: ["rouge", "bleu"]

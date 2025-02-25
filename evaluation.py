@@ -6,6 +6,7 @@ import json
 import re
 import string
 import time
+import numpy as np
 
 import hydra
 from path import Path
@@ -47,10 +48,13 @@ def get_metric(metrics: List[str] | str) -> Dict[str, Callable]:
 
 def generate_inference(client: OpenAI, model: str, dataset: Dataset, gen_config: Dict) -> Dict[str, str]:
     inferences = dict()
+    performances = dict()
     for idx, example in enumerate(dataset):
         prompt = get_prompt(example)
-        inferences[idx] = get_inference(client, model, prompt, gen_config)
-    return inferences
+        inference, performance = get_inference(client, model, prompt, gen_config)
+        inferences[idx] = inference
+        performances[idx] = performance
+    return inferences, performances
 
 def get_prompt(example: Dataset) -> List[dict[str, str]]:
     return [{
@@ -75,10 +79,10 @@ def get_inference(client : OpenAI , model: str, messages: List[dict[str, str]], 
     temperature=gen_config.temperature,
     top_p=gen_config.top_p,)
     end_time = time.time()
-    print(completion)
+    
     token_num = completion.usage.completion_tokens
     performance = {"latency" : end_time - start_time, "throughput": token_num /(end_time - start_time)}
-    return completion.choices[0].message.content
+    return completion.choices[0].message.content, performance
     
 
 def get_references(dataset: Dataset) -> Dict[str, str]:
@@ -119,7 +123,7 @@ def normalizer(s,p=ENGINE) -> str:
 
 
 
-def evaluate_inference(inferences: Dict[str, str], references:Dict[str, str], metrics: Dict[str, Callable]) -> Dict[str, Dict[str, float]]:
+def evaluate_inference(inferences: Dict[str, str], references:Dict[str, str], performances:Dict[str, str] , metrics: Dict[str, Callable]) -> Dict[str, Dict[str, float]]:
     results = dict()
     inferences = [normalizer(inference) for inference in inferences.values()]
     references = [normalizer(reference) for reference in references.values()]
@@ -127,7 +131,10 @@ def evaluate_inference(inferences: Dict[str, str], references:Dict[str, str], me
         
         result = metric.compute(predictions=inferences, references=references)
         results[metric_name] = result
-        
+    
+    results['latency'] = np.mean([ l['latency'] for _, l in performances.items()])
+    results['throughput'] = np.mean([ l['throughput'] for _, l in performances.items()])
+    
     return results
 
 
@@ -156,10 +163,9 @@ def main(config):
     references = get_references(dataset)
 
     model_id = config.model.llm_id
-    inferences = generate_inference(model, model_id, dataset, gen_config=config.gen_config)
+    inferences, performances = generate_inference(model, model_id, dataset, gen_config=config.gen_config)
     
-    results = evaluate_inference(inferences, references, metrics)
-    print(results)
+    results = evaluate_inference(inferences, references, performances, metrics)
     save_results(results, results_dir, config.model.llm_pretty_name)
 
 if __name__ == "__main__":

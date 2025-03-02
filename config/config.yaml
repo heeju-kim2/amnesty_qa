@@ -1,7 +1,7 @@
 model:
   llm_type: openai # hf
   llm_pretty_name : llama_3_1_70B 
-  llm_id: meta-llama/Meta-Llama-3.1-70B-Instruct 
+  llm_id: meta-llama/Llama-3.1-70B-Instruct 
   model_dtype: "bfloat16"
 
 host: "localhost"
@@ -10,12 +10,12 @@ api_key: "token-abc123"
 
 dataset:
   hf_id: "explodinggradients/amnesty_qa" 
-  hf_sub_id: "english_v1"
+  hf_sub_id: "english_v3"
   split: "eval"
 
 paths:
   cache_dir: ./
-  results_dir: "./results"
+  results_dir: "./results_v3"
 
 seed: 42
 

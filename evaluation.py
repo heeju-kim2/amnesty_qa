@@ -63,8 +63,8 @@ def get_prompt(example: Dataset) -> List[dict[str, str]]:
     },
     {
         "role": "user",
-        "content": USER_PROMPT.format(context=" ".join(example["contexts"]), 
-                                      question=example["question"])
+        "content": USER_PROMPT.format(context=" ".join(example["retrieved_contexts"]), 
+                                      question=example["user_input"])
     }]
     
     
@@ -80,13 +80,18 @@ def get_inference(client : OpenAI , model: str, messages: List[dict[str, str]], 
     top_p=gen_config.top_p,)
     end_time = time.time()
     
-    token_num = completion.usage.completion_tokens
-    performance = {"latency" : end_time - start_time, "throughput": token_num /(end_time - start_time)}
+    gen_token_num = completion.usage.completion_tokens
+    prompt_token_num = completion.usage.prompt_tokens
+    performance = {"latency" : end_time - start_time,
+                    "throughput": gen_token_num /(end_time - start_time),
+                    "completion_tokens": gen_token_num,
+                    "prompt_tokens": prompt_token_num}
+    
     return completion.choices[0].message.content, performance
     
 
 def get_references(dataset: Dataset) -> Dict[str, str]:
-    return {idx: data["ground_truths"][0] for idx, data in enumerate(dataset)}
+    return {idx: data["response"] for idx, data in enumerate(dataset)}
 
 def normalizer(s,p=ENGINE) -> str:
     """Lower text and remove punctuation, articles and extra whitespace."""
@@ -121,20 +126,29 @@ def normalizer(s,p=ENGINE) -> str:
     return white_space_fix(remove_articles(handle_punc(convert_numbers_to_words(lower(replace_underscore(s)))))).strip()
 
 
-
+def mean_value(dict_: Dict[str, List[float]], item_) -> float:
+    return np.mean([ l[item_] for _, l in dict_.items()])
 
 def evaluate_inference(inferences: Dict[str, str], references:Dict[str, str], performances:Dict[str, str] , metrics: Dict[str, Callable]) -> Dict[str, Dict[str, float]]:
     results = dict()
     inferences = [normalizer(inference) for inference in inferences.values()]
     references = [normalizer(reference) for reference in references.values()]
+
+    print("===")
+    for i in range(5):
+        print("inference: ", inferences[i])
+        print("references:", references[i])
+        print("===")
+
     for metric_name, metric in metrics.items():
         
         result = metric.compute(predictions=inferences, references=references)
         results[metric_name] = result
     
-    results['latency'] = np.mean([ l['latency'] for _, l in performances.items()])
-    results['throughput'] = np.mean([ l['throughput'] for _, l in performances.items()])
-    
+    results['latency'] = mean_value(performances, 'latency')
+    results['throughput'] = mean_value(performances, 'throughput')
+    results['completion_tokens'] = mean_value(performances, 'completion_tokens')
+    results['prompt_tokens'] = mean_value(performances, 'prompt_tokens') 
     return results
 
 
@@ -161,10 +175,10 @@ def main(config):
     model = get_model(config.host, config.api_key, config.port)
     metrics = get_metric(config.metrics)
     references = get_references(dataset)
-
+    
     model_id = config.model.llm_id
     inferences, performances = generate_inference(model, model_id, dataset, gen_config=config.gen_config)
-    
+
     results = evaluate_inference(inferences, references, performances, metrics)
     save_results(results, results_dir, config.model.llm_pretty_name)
 

@@ -180,7 +180,11 @@ def main(config):
     inferences, performances = generate_inference(model, model_id, dataset, gen_config=config.gen_config)
 
     results = evaluate_inference(inferences, references, performances, metrics)
-    save_results(results, results_dir, config.model.llm_pretty_name)
+    
+    save_results(results, results_dir, os.path.basename(model_id))
 
 if __name__ == "__main__":
     main()
+    """
+    python main.py model.llm_id=meta-llama/Llama-3.1-8B-Instruct port=8000 api_key=token-abc123
+    """

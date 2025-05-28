@@ -1,6 +1,5 @@
 model:
   llm_type: openai # hf
-  llm_pretty_name : llama_3_1_70B 
   llm_id: meta-llama/Llama-3.1-70B-Instruct 
   model_dtype: "bfloat16"
 
@@ -15,7 +14,7 @@ dataset:
 
 paths:
   cache_dir: ./
-  results_dir: "./results_v3"
+  results_dir: "./results"
 
 seed: 42
 
